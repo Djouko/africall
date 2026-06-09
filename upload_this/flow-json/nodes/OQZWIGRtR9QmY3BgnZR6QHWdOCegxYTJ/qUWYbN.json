@@ -1,0 +1,213 @@
+[
+  {
+    "id": "1qZTOv",
+    "position": {
+      "x": 100,
+      "y": 230
+    },
+    "type": "INITIAL",
+    "data": {
+      "digit": [],
+      "action": [],
+      "other": {}
+    },
+    "width": 250,
+    "height": 196
+  },
+  {
+    "id": "GUugRv",
+    "position": {
+      "x": 444,
+      "y": 76
+    },
+    "data": {
+      "platform": "NATIVE",
+      "elevenLabsData": {
+        "apiKey": "",
+        "voiceId": "",
+        "selectedVoice": {}
+      },
+      "message": "नमस्ते, मैं अदिति हूँ। आपको क्या जानकारी चाहिए?\n 1. सीए जानकी से बात करनी है |||||\n\nबीप की आवाज सुन के ही आप अपना सवाल दे",
+      "messageIgnore": "",
+      "local": {
+        "language": {
+          "id": 20,
+          "language": "Hindi",
+          "locale": "hi-IN",
+          "voices": [
+            {
+              "name": "Aditi",
+              "gender": "Female"
+            },
+            {
+              "name": "Kajal-Neural",
+              "gender": "Female"
+            }
+          ],
+          "label": "Hindi"
+        },
+        "voice": {
+          "name": "Kajal-Neural",
+          "gender": "Female",
+          "label": "Kajal-Neural"
+        }
+      },
+      "digit": [
+        {
+          "digit": "OTHER",
+          "id": "yTGDu9"
+        },
+        {
+          "id": "eKtaQU",
+          "digit": 1
+        }
+      ]
+    },
+    "type": "GATHER",
+    "width": 250,
+    "height": 628,
+    "selected": false,
+    "positionAbsolute": {
+      "x": 444,
+      "y": 76
+    },
+    "dragging": false
+  },
+  {
+    "id": "ip5yhM",
+    "position": {
+      "x": 807,
+      "y": 77
+    },
+    "data": {
+      "platform": "NATIVE",
+      "elevenLabsData": {
+        "apiKey": "sk_a8abae5e98af53bee893b77e88cc45648d4ddfd0b1b0680d",
+        "voiceId": "mActWQg9kibLro6Z2ouY",
+        "selectedVoice": {
+          "name": "Riya Rao - Hindi Conversational Voice",
+          "id": "mActWQg9kibLro6Z2ouY",
+          "gender": "female",
+          "url": "https://storage.googleapis.com/eleven-public-prod/custom/voices/mActWQg9kibLro6Z2ouY/MUOtsgIuvSnfDxBuzdjY.mp3",
+          "label": "Riya Rao - Hindi Conversational Voice | female"
+        }
+      },
+      "local": {
+        "language": {
+          "id": 12,
+          "language": "English (US)",
+          "locale": "en-US",
+          "voices": [
+            {
+              "name": "Salli",
+              "gender": "Female"
+            },
+            {
+              "name": "Ivy",
+              "gender": "Female"
+            },
+            {
+              "name": "Joanna",
+              "gender": "Female"
+            },
+            {
+              "name": "Kendra",
+              "gender": "Female"
+            },
+            {
+              "name": "Kimberly",
+              "gender": "Female"
+            },
+            {
+              "name": "Joey",
+              "gender": "Male"
+            },
+            {
+              "name": "Justin",
+              "gender": "Male"
+            },
+            {
+              "name": "Matthew",
+              "gender": "Male"
+            },
+            {
+              "name": "Salli-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Ivy-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Joanna-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Kendra-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Kimberly-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Joey-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Justin-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Matthew-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Kevin-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Ruth-Neural",
+              "gender": "Female"
+            },
+            {
+              "name": "Stephen-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Gregory-Neural",
+              "gender": "Male"
+            },
+            {
+              "name": "Danielle-Neural",
+              "gender": "Female"
+            }
+          ]
+        },
+        "voice": {
+          "name": "Salli",
+          "gender": "Female"
+        }
+      },
+      "assignAi": false,
+      "trainText": "आप एक चार्टर्ड अकाउंटेंट (सीए) हैं। आपकी भाषा हिंग्लिश है, इसलिए आपको सभी प्रश्नों के उत्तर हिंग्लिश में ही देने हैं। साथ ही, अपॉइंटमेंट भी बुक करनी है।",
+      "allowTask": false,
+      "taskArr": [],
+      "aiMode": "gpt-3.5-turbo",
+      "history": 3,
+      "keys": "sk-Ej2pqdkbhX4dVRRRcbtZHVTrbSjsmBROj9SLjU-EypT3BlbkFJ2Q4FLPCfWHJuQ7otLY0xzUOCDAP4s6a3p0veZyK7oA",
+      "openingSay": "Hi, मेरा नाम जानकी है! मैं आपकी क्या सहायता कर सकती हु|  ",
+      "words_per_sec": 3,
+      "voice": "ELEVENLABS"
+    },
+    "type": "OPENAI",
+    "width": 320,
+    "height": 949,
+    "selected": true,
+    "positionAbsolute": {
+      "x": 807,
+      "y": 77
+    },
+    "dragging": false
+  }
+]

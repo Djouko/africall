@@ -1,0 +1,23 @@
+[
+  {
+    "source": "1qZTOv",
+    "sourceHandle": "1qZTOv",
+    "target": "GUugRv",
+    "targetHandle": "GUugRv_target",
+    "id": "reactflow__edge-1qZTOv1qZTOv-GUugRvGUugRv_target"
+  },
+  {
+    "source": "GUugRv",
+    "sourceHandle": "yTGDu9",
+    "target": "ip5yhM",
+    "targetHandle": "ip5yhM_target",
+    "id": "reactflow__edge-GUugRvyTGDu9-ip5yhMip5yhM_target"
+  },
+  {
+    "source": "GUugRv",
+    "sourceHandle": "eKtaQU",
+    "target": "ip5yhM",
+    "targetHandle": "ip5yhM_target",
+    "id": "reactflow__edge-GUugRveKtaQU-ip5yhMip5yhM_target"
+  }
+]

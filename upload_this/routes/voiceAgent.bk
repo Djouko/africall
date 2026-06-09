@@ -1,0 +1,1097 @@
+const WebSocket = require("ws");
+const { query } = require("../database/dbpromise");
+const { getDeviceId, parseJson, getTwimlMsg } = require("../helper/function");
+const router = require("express").Router();
+const axios = require("axios");
+
+async function sendMessageFunc(params) {
+  console.log({ sendMsgg: params }); // Log the full params (should include OpenAI args)
+
+  // Example: Access OpenAI args (e.g., if tool has "mobile" param)
+  const mobile = params.mobile || params.openAiArgs?.mobile || "default_mobile";
+  console.log(`Extracted mobile from params/OpenAI args: ${mobile}`);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: false, msg: "The number should be start from 44" }); // Placeholder - replace with your real implementation (may return data or throw)
+    }, 2000);
+  });
+}
+
+async function sendEmailFunc(params) {
+  console.log({ sendEmailParams: params }); // Log for debugging
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true, msg: "Email was sent to the number" }); // Placeholder - replace with your real implementation (may return data or throw)
+    }, 2000);
+  });
+}
+
+// Function Registry (with flexible data pass-through)
+const functionRegistry = {
+  api_call: async (params) => {
+    console.log(`🌐 Making API call with params: ${JSON.stringify(params)}`);
+    try {
+      const result = await makeApiCallFunc(params);
+      return {
+        instruct:
+          "API call completed. Check the response data and status for success/failure.",
+        data: result,
+      };
+    } catch (error) {
+      return {
+        instruct: "API call failed. Check the error details.",
+        data: {
+          success: false,
+          error: error.message || "Unknown error",
+          data: {},
+        },
+      };
+    }
+  },
+
+  // Send Message (corresponds to sendMessage node)
+  send_message: async (params) => {
+    console.log(`📤 Sending message with params: ${JSON.stringify(params)}`);
+    try {
+      const result = await sendMessageFunc(params);
+      console.log({ result });
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: result, // Flexible: whatever the func returns (could be object, string, null, etc.)
+      };
+    } catch (error) {
+      console.log({ error });
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: { error: error.message || "Unknown error" }, // Simple error info for AI to parse
+      };
+    }
+  },
+
+  // Send Email (corresponds to sendEmail node)
+  send_email: async (params) => {
+    console.log(`📧 Sending email with params: ${JSON.stringify(params)}`);
+    try {
+      const result = await sendEmailFunc(params);
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: result, // Flexible: whatever the func returns (could be object, string, null, etc.)
+      };
+    } catch (error) {
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: { error: error.message || "Unknown error" }, // Simple error info for AI to parse
+      };
+    }
+  },
+};
+
+// Fixed API Call function with proper parameter extraction
+async function makeApiCallFunc(params) {
+  console.log({ apiCallParams: params });
+
+  const axios = require("axios");
+
+  try {
+    // Extract API call configuration from currentNode.data or currentNode directly
+    const nodeData = params.currentNode.data || params.currentNode;
+
+    const method = (nodeData.method || "GET").toUpperCase();
+    const rawUrl = nodeData.url || "";
+    const timeout = nodeData.timeout || 10000;
+
+    console.log("Raw URL before substitution:", rawUrl);
+
+    // Substitute variables in URL
+    const url = substituteVariables(rawUrl, params);
+
+    console.log("URL after substitution:", url);
+
+    // Validate URL
+    if (!url || url.trim() === "") {
+      throw new Error("URL is required and cannot be empty");
+    }
+
+    // Basic URL validation
+    try {
+      new URL(url);
+    } catch (urlError) {
+      throw new Error(`Invalid URL format: ${url}`);
+    }
+
+    // Process headers with variable substitution
+    const headers = {};
+    if (nodeData.headers && Array.isArray(nodeData.headers)) {
+      nodeData.headers.forEach((header) => {
+        if (header.key && header.value) {
+          const key = substituteVariables(header.key, params);
+          const value = substituteVariables(header.value, params);
+          headers[key] = value;
+        }
+      });
+    }
+
+    // Process query parameters with variable substitution
+    const queryParams = {};
+    if (nodeData.queryParams && Array.isArray(nodeData.queryParams)) {
+      nodeData.queryParams.forEach((param) => {
+        if (param.key && param.value) {
+          const key = substituteVariables(param.key, params);
+          const value = substituteVariables(param.value, params);
+          queryParams[key] = value;
+        }
+      });
+    }
+
+    // Process request body with variable substitution
+    let requestBody = null;
+    if (["POST", "PUT", "PATCH"].includes(method) && nodeData.body) {
+      const bodyString = substituteVariables(nodeData.body, params);
+
+      // Try to parse as JSON, fallback to string
+      try {
+        requestBody = JSON.parse(bodyString);
+      } catch (e) {
+        requestBody = bodyString;
+      }
+    }
+
+    // Prepare axios config
+    const axiosConfig = {
+      method: method.toLowerCase(),
+      url: url,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      params: queryParams,
+      timeout: timeout,
+      validateStatus: function (status) {
+        // Accept any status code (don't throw on 4xx/5xx)
+        return status >= 200 && status < 600;
+      },
+    };
+
+    // Add request body for applicable methods
+    if (requestBody !== null) {
+      axiosConfig.data = requestBody;
+    }
+
+    console.log("Making API request with config:", {
+      method: axiosConfig.method,
+      url: axiosConfig.url,
+      headers: axiosConfig.headers,
+      params: axiosConfig.params,
+      data: axiosConfig.data,
+    });
+
+    // Make the API request
+    const response = await axios(axiosConfig);
+
+    // Try to return JSON response, fallback to raw data
+    let responseData;
+    try {
+      // If response.data is already an object, use it directly
+      if (typeof response.data === "object" && response.data !== null) {
+        responseData = response.data;
+      } else {
+        // Try to parse as JSON
+        responseData = JSON.parse(response.data);
+      }
+    } catch (e) {
+      // If not valid JSON, return empty object as specified
+      responseData = {};
+    }
+
+    return {
+      success: response.status >= 200 && response.status < 300,
+      status: response.status,
+      statusText: response.statusText,
+      data: responseData,
+      headers: response.headers,
+      url: response.config.url,
+      method: response.config.method?.toUpperCase(),
+    };
+  } catch (error) {
+    console.error("API call error:", error);
+
+    // Handle different types of errors
+    if (error.code === "ECONNABORTED") {
+      return {
+        success: false,
+        error: "Request timeout",
+        data: {},
+        status: 0,
+      };
+    } else if (error.response) {
+      // Server responded with error status
+      let errorData;
+      try {
+        errorData =
+          typeof error.response.data === "object"
+            ? error.response.data
+            : JSON.parse(error.response.data);
+      } catch (e) {
+        errorData = {};
+      }
+
+      return {
+        success: false,
+        status: error.response.status,
+        statusText: error.response.statusText,
+        error: error.message,
+        data: errorData,
+      };
+    } else {
+      // Network or other error
+      return {
+        success: false,
+        error: error.message || "Unknown error",
+        data: {},
+        status: 0,
+      };
+    }
+  }
+}
+
+// Helper function to substitute variables in strings
+const substituteVariables = (template, nodeParams) => {
+  if (typeof template !== "string") return template;
+
+  console.log("Substituting variables in template:", template);
+  console.log("Available nodeParams:", JSON.stringify(nodeParams, null, 2));
+
+  const result = template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+    try {
+      // Clean the path and evaluate it
+      const cleanPath = path.trim();
+      console.log("Evaluating path:", cleanPath);
+
+      const value = getValueByPath(nodeParams, cleanPath);
+      console.log("Path result:", cleanPath, "=", value);
+
+      // Return the value as string, or the original placeholder if undefined
+      return value !== undefined ? String(value) : match;
+    } catch (error) {
+      console.error(`Error substituting variable ${path}:`, error);
+      return match; // Return original placeholder on error
+    }
+  });
+
+  console.log("Substitution result:", result);
+  return result;
+};
+
+// Enhanced getValueByPath function to handle complex paths
+const getValueByPath = (obj, path) => {
+  if (!path || typeof path !== "string") return undefined;
+
+  try {
+    console.log(
+      "Getting value by path:",
+      path,
+      "from object keys:",
+      Object.keys(obj)
+    );
+
+    // Handle array notation and nested properties
+    const keys = path.split(/\.|\[|\]/).filter(Boolean);
+    console.log("Path keys:", keys);
+
+    const result = keys.reduce((current, key) => {
+      console.log("Current object:", current, "accessing key:", key);
+
+      if (current === null || current === undefined) return undefined;
+
+      // Handle array indices
+      if (!isNaN(key)) {
+        const index = parseInt(key);
+        return Array.isArray(current) ? current[index] : undefined;
+      }
+
+      return current[key];
+    }, obj);
+
+    console.log("Final result for path", path, ":", result);
+    return result;
+  } catch (error) {
+    console.error(`Error evaluating path '${path}':`, error);
+    return undefined;
+  }
+};
+
+// Evaluate a condition against a value
+const evaluateCondition = (value, condition) => {
+  if (!condition) return false;
+  if (condition.type === "default") return true;
+
+  // If a specific variable path is provided in the condition, use that instead
+  const valueToCheck = condition.variable
+    ? getValueByPath(value, condition.variable)
+    : value;
+
+  if (valueToCheck === undefined) return false;
+
+  const conditionValue = condition.value;
+
+  switch (condition.type) {
+    case "equals":
+      return String(valueToCheck) === String(conditionValue);
+    case "contains":
+      return String(valueToCheck).includes(String(conditionValue));
+    case "startsWith":
+      return String(valueToCheck).startsWith(String(conditionValue));
+    case "endsWith":
+      return String(valueToCheck).endsWith(String(conditionValue));
+    case "greaterThan":
+      return Number(valueToCheck) > Number(conditionValue);
+    case "lessThan":
+      return Number(valueToCheck) < Number(conditionValue);
+    case "regex":
+      try {
+        const regex = new RegExp(conditionValue);
+        return regex.test(String(valueToCheck));
+      } catch (e) {
+        console.error("Invalid regex:", e);
+        return false;
+      }
+    default:
+      return false;
+  }
+};
+
+// Route for Twilio to handle incoming calls
+router.all("/incoming/:device_id", async (req, res) => {
+  try {
+    const deviceId = req.params.device_id;
+    const device = await getDeviceId(deviceId);
+
+    if (!device) {
+      console.log("No device found");
+      return res.type("text/xml").send(getTwimlMsg("No device found"));
+    }
+
+    const voiceAgent = device.voice_agent;
+    console.dir({ voiceAgent }, { depth: null });
+
+    if (!voiceAgent || !voiceAgent.active || voiceAgent?.route !== "incoming") {
+      console.log("No active agent found for this device");
+      return res
+        .type("text/xml")
+        .send(getTwimlMsg("No active agent found for this device"));
+    }
+
+    const nodes = voiceAgent?.flow?.data?.nodes || [];
+    const edges = voiceAgent?.flow?.data?.edges || [];
+
+    if (nodes?.length < 1 || edges?.length < 1) {
+      console.log("Nodes or edges are not enough to run this flow");
+      return res
+        .type("text/xml")
+        .send(
+          getTwimlMsg("The automation flow is not enough to run the agent")
+        );
+    }
+
+    const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+                          <Response>
+                              <Connect>
+                                      <Stream url="wss://${req.headers.host}/api/vagent/media-stream">
+                                          <Parameter name="device_id" value="${deviceId}" />
+                                      </Stream>
+                              </Connect>
+                          </Response>`;
+
+    res.type("text/xml").send(twimlResponse);
+  } catch (err) {
+    console.error("Error handling incoming call:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// WebSocket route for media-stream
+router.ws("/media-stream", (ws, req) => {
+  console.log("Client connected", { url: req.originalUrl });
+
+  // Connection-specific state
+  let streamSid = null;
+  let latestMediaTimestamp = 0;
+  let lastAssistantItem = null;
+  let markQueue = [];
+  let responseStartTimestampTwilio = null;
+  let loadedFlow = null; // Will store { nodes, edges }
+  let flowConfig = null; // Will store config from aiStart node
+
+  // The OpenAI WebSocket is now initialized after receiving the API key
+  let openAiWs = null;
+
+  // ElevenLabs WebSocket (initialized per response, only if voice_source === 'elevenlabs')
+  let elevenWs = null;
+  let textQueue = []; // Queue for text messages to ElevenLabs
+
+  let voiceAgentData = null;
+
+  // Send mark messages to Media Streams
+  const sendMark = (connection, streamSid) => {
+    if (streamSid) {
+      const markEvent = {
+        event: "mark",
+        streamSid: streamSid,
+        mark: { name: "responsePart" },
+      };
+      connection.send(JSON.stringify(markEvent));
+      markQueue.push("responsePart");
+    }
+  };
+
+  // Function to initialize ElevenLabs WebSocket for streaming TTS (moved outside setupOpenAiHandlers)
+  const initializeElevenLabsWs = () => {
+    if (!flowConfig || flowConfig.voice_source !== "elevenlabs") return;
+
+    // Get voiceId from el_voice object
+    const voiceId = flowConfig.el_voice?.voiceId || "H6QPv2pQZDcGqLwDTIJQ";
+    console.log({ voiceId: voiceId });
+    const apiKey = flowConfig.elevenlabs_api_key || "";
+
+    if (!apiKey) {
+      console.error("Missing ElevenLabs API key. Cannot initialize WebSocket.");
+      return;
+    }
+
+    elevenWs = new WebSocket(
+      `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=${
+        flowConfig.elevenlabs_model_id || "eleven_multilingual_v2"
+      }&output_format=ulaw_8000`,
+      { headers: { "xi-api-key": apiKey } }
+    );
+
+    elevenWs.on("open", () => {
+      console.log("Connected to ElevenLabs WebSocket");
+      const bosMessage = {
+        text: " ",
+        voice_settings: {
+          stability: flowConfig.elevenlabs_stability || 0.5,
+          similarity_boost: flowConfig.elevenlabs_similarity_boost || 0.75,
+          style: flowConfig.elevenlabs_style || 0.0,
+          use_speaker_boost: flowConfig.elevenlabs_use_speaker_boost || true,
+        },
+        generation_config: { chunk_length_schedule: [50] },
+        xi_api_key: apiKey,
+      };
+      elevenWs.send(JSON.stringify(bosMessage));
+
+      // Send any queued text messages
+      while (textQueue.length > 0) {
+        const queuedMsg = textQueue.shift();
+        elevenWs.send(JSON.stringify(queuedMsg));
+      }
+    });
+
+    elevenWs.on("message", (data) => {
+      const response = JSON.parse(data);
+      if (response.audio) {
+        const audioDelta = {
+          event: "media",
+          streamSid: streamSid,
+          media: { payload: response.audio },
+        };
+        ws.send(JSON.stringify(audioDelta));
+
+        if (!responseStartTimestampTwilio) {
+          responseStartTimestampTwilio = latestMediaTimestamp;
+          if (flowConfig.show_timing_math)
+            console.log(
+              `Setting start timestamp for new response: ${responseStartTimestampTwilio}ms`
+            );
+        }
+
+        sendMark(ws, streamSid);
+      }
+    });
+
+    elevenWs.on("error", (error) =>
+      console.error("ElevenLabs WebSocket error:", error)
+    );
+    elevenWs.on("close", () => {
+      console.log("ElevenLabs WebSocket closed");
+      elevenWs = null;
+    });
+  };
+
+  // Helper function to send to ElevenLabs (with queueing if not open)
+  const sendToEleven = (msg) => {
+    if (elevenWs && elevenWs.readyState === WebSocket.OPEN) {
+      elevenWs.send(JSON.stringify(msg));
+    } else {
+      textQueue.push(msg);
+      if (!elevenWs) {
+        initializeElevenLabsWs();
+      }
+    }
+  };
+
+  // Handle incoming messages from Twilio
+  ws.on("message", async (message) => {
+    try {
+      const data = JSON.parse(message);
+
+      switch (data.event) {
+        case "start":
+          streamSid = data.start.streamSid;
+          console.log("Incoming stream has started", streamSid);
+
+          const deviceId = data?.start?.customParameters?.device_id;
+
+          const device = await getDeviceId(deviceId);
+
+          if (!device) {
+            console.log("No device found");
+            ws.close();
+            return;
+          }
+
+          const voiceAgent = device.voice_agent;
+          if (!voiceAgent || !voiceAgent.active) {
+            console.log("No active agent found for this device");
+            ws.close();
+            return;
+          }
+
+          const nodes = voiceAgent?.flow?.data?.nodes || [];
+          const edges = voiceAgent?.flow?.data?.edges || [];
+
+          if (nodes?.length < 1 || edges?.length < 1) {
+            console.log("Nodes or edges are not enough to run this flow");
+            ws.close();
+            return;
+          }
+
+          voiceAgentData = voiceAgent;
+
+          // Set loadedFlow
+          loadedFlow = voiceAgent.flow.data; // { nodes, edges }
+
+          // Extract flowConfig from aiStart node (id: "1")
+          const aiStartNode = nodes.find((node) => node.id === "1");
+          if (!aiStartNode) {
+            console.error("AI Start node not found. Closing connection.");
+            ws.close();
+            return;
+          }
+
+          flowConfig = aiStartNode.data || {};
+
+          console.log({ flowConfig: JSON.stringify(flowConfig) });
+
+          // Get OpenAI API key from flowConfig
+          const openAiApiKey = flowConfig.apiKeys || "";
+          if (!openAiApiKey) {
+            console.error("Missing OpenAI API key. Closing connection.");
+            ws.close();
+            return;
+          }
+
+          // Initialize OpenAI WebSocket
+          openAiWs = new WebSocket(
+            `wss://api.openai.com/v1/realtime?model=${
+              flowConfig.openai_model || "gpt-4o-realtime-preview"
+            }`,
+            {
+              headers: {
+                Authorization: `Bearer ${openAiApiKey}`,
+                "OpenAI-Beta": "realtime=v1",
+              },
+            }
+          );
+
+          setupOpenAiHandlers();
+          responseStartTimestampTwilio = null;
+          latestMediaTimestamp = 0;
+          break;
+
+        case "media":
+          latestMediaTimestamp = data.media.timestamp;
+          if (flowConfig && flowConfig.show_timing_math)
+            console.log(
+              `Received media message with timestamp: ${latestMediaTimestamp}ms`
+            );
+
+          // Ensure openAiWs is initialized and open before sending data
+          if (openAiWs && openAiWs.readyState === WebSocket.OPEN) {
+            const audioAppend = {
+              type: "input_audio_buffer.append",
+              audio: data.media.payload,
+            };
+            openAiWs.send(JSON.stringify(audioAppend));
+          }
+          break;
+
+        case "mark":
+          if (markQueue.length > 0) {
+            markQueue.shift();
+          }
+          break;
+
+        case "dtmf":
+          // Handle keypad input
+          const pressedDigit = data.dtmf.digit;
+          console.log(`User pressed: ${pressedDigit}`);
+          break;
+
+        default:
+          console.log("Received non-media event:", data.event);
+          break;
+      }
+    } catch (error) {
+      console.error(
+        "Error parsing message:",
+        error,
+        "Message:",
+        message.toString()
+      );
+    }
+  });
+
+  // Handle connection close
+  ws.on("close", () => {
+    if (openAiWs && openAiWs.readyState === WebSocket.OPEN) {
+      openAiWs.close();
+    }
+    if (elevenWs && elevenWs.readyState === WebSocket.OPEN) {
+      elevenWs.close();
+    }
+    console.log("Client disconnected.");
+  });
+
+  // This function sets up all the necessary event handlers for the OpenAI WebSocket
+  const setupOpenAiHandlers = () => {
+    // Control initial session with OpenAI (dynamically set modalities based on voice_source)
+    const initializeSession = () => {
+      const modalities =
+        flowConfig.voice_source === "openai" ? ["text", "audio"] : ["text"];
+
+      // Dynamically adjust instructions to include welcome_message if present
+      let instructions =
+        flowConfig.system_message || "You are an AI assistant.";
+      if (
+        flowConfig.welcome_message &&
+        flowConfig.welcome_message.trim() !== ""
+      ) {
+        instructions += `\n\nStart the conversation by saying exactly: "${flowConfig.welcome_message}"`;
+      }
+
+      const sessionUpdate = {
+        type: "session.update",
+        session: {
+          turn_detection: { type: "server_vad" },
+          input_audio_format: "g711_ulaw",
+          output_audio_format: "g711_ulaw",
+          voice: flowConfig.openai_voice || "alloy",
+          instructions: instructions,
+          modalities: modalities,
+          temperature: flowConfig.temperature || 0.8,
+          tools: flowConfig.available_tools || [],
+        },
+      };
+      // console.log("Sending session update:", JSON.stringify(sessionUpdate));
+      openAiWs.send(JSON.stringify(sessionUpdate));
+
+      // If welcome_message is present, trigger an initial response.create to make AI speak it immediately
+      if (
+        flowConfig.welcome_message &&
+        flowConfig.welcome_message.trim() !== ""
+      ) {
+        openAiWs.send(JSON.stringify({ type: "response.create" }));
+      }
+    };
+
+    // Handle interruption when the caller's speech starts
+    const handleSpeechStartedEvent = () => {
+      if (markQueue.length > 0 && responseStartTimestampTwilio != null) {
+        const elapsedTime = latestMediaTimestamp - responseStartTimestampTwilio;
+        if (flowConfig.show_timing_math && lastAssistantItem) {
+          const truncateEvent = {
+            type: "conversation.item.truncate",
+            item_id: lastAssistantItem,
+            content_index: 0,
+            audio_end_ms: elapsedTime,
+          };
+          openAiWs.send(JSON.stringify(truncateEvent));
+        }
+
+        ws.send(JSON.stringify({ event: "clear", streamSid: streamSid }));
+
+        // Close ElevenLabs WS if open and voice_source === 'elevenlabs'
+        if (
+          flowConfig.voice_source === "elevenlabs" &&
+          elevenWs &&
+          elevenWs.readyState === WebSocket.OPEN
+        ) {
+          elevenWs.send(JSON.stringify({ text: "" })); // Flush and EOS
+          elevenWs.close();
+          elevenWs = null;
+          textQueue = []; // Clear queue on interruption
+        }
+
+        // Reset
+        markQueue = [];
+        lastAssistantItem = null;
+        responseStartTimestampTwilio = null;
+      }
+    };
+
+    // Open event for OpenAI WebSocket
+    openAiWs.on("open", () => {
+      console.log("Connected to the OpenAI Realtime API");
+      setTimeout(initializeSession, 100);
+    });
+
+    // Listen for messages from the OpenAI WebSocket
+    openAiWs.on("message", async (data) => {
+      try {
+        const response = JSON.parse(data);
+
+        // Handle function calls by executing the flow chain if available, else direct call
+        if (response.type === "response.function_call_arguments.done") {
+          console.log(`🔧 Function call received: ${response.name}`);
+          const functionName = response.name;
+          const args = JSON.parse(response.arguments || "{}");
+          const callId = response.call_id;
+
+          let functionResult;
+          // Check if there's a flow chain for this function
+          const startingEdge = loadedFlow.edges.find(
+            (edge) =>
+              edge.source === "1" &&
+              edge.sourceHandle === `function-${functionName}`
+          );
+          if (startingEdge) {
+            functionResult = await executeFlowForFunction(functionName, args);
+          } else if (functionRegistry[functionName]) {
+            // Fallback to direct function call for non-flow functions
+            functionResult = await functionRegistry[functionName](args);
+          } else {
+            functionResult = {
+              instruct:
+                "check the response if success or failed and act as per the response",
+              data: { error: `Unknown function: ${functionName}` },
+            };
+          }
+
+          const functionResponse = {
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id: callId,
+              output: JSON.stringify(functionResult),
+            },
+          };
+          openAiWs.send(JSON.stringify(functionResponse));
+          console.log("✅ Function result sent to OpenAI");
+
+          openAiWs.send(JSON.stringify({ type: "response.create" }));
+        }
+
+        if (flowConfig.log_event_types?.includes(response.type)) {
+          console.log(`Received event: ${response.type}`);
+        }
+
+        // Handle TTS based on provider (voice_source)
+        if (
+          flowConfig.voice_source === "openai" &&
+          response.type === "response.audio.delta" &&
+          response.delta
+        ) {
+          const audioDelta = {
+            event: "media",
+            streamSid: streamSid,
+            media: { payload: response.delta },
+          };
+          ws.send(JSON.stringify(audioDelta));
+
+          if (!responseStartTimestampTwilio) {
+            responseStartTimestampTwilio = latestMediaTimestamp;
+            if (flowConfig.show_timing_math)
+              console.log(
+                `Setting start timestamp for new response: ${responseStartTimestampTwilio}ms`
+              );
+          }
+
+          if (response.item_id) lastAssistantItem = response.item_id;
+          sendMark(ws, streamSid);
+        } else if (
+          flowConfig.voice_source === "elevenlabs" &&
+          response.type === "response.text.delta" &&
+          response.delta
+        ) {
+          const textMessage = {
+            text: response.delta + " ",
+            try_trigger_generation: true,
+          };
+          sendToEleven(textMessage);
+        }
+
+        // When response is done, flush ElevenLabs if applicable
+        if (
+          response.type === "response.done" &&
+          flowConfig.voice_source === "elevenlabs"
+        ) {
+          sendToEleven({ text: "" }); // Flush and EOS
+        }
+
+        if (response.type === "input_audio_buffer.speech_started") {
+          handleSpeechStartedEvent();
+        }
+
+        if (response.type === "response.created") {
+          if (flowConfig.voice_source === "elevenlabs") {
+            // Don't immediately close and recreate - let it finish current response
+            lastAssistantItem = response.response.id;
+          } else {
+            lastAssistantItem = response.response.id;
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Error processing OpenAI message:",
+          error,
+          "Raw message:",
+          data.toString()
+        );
+      }
+    });
+
+    // Handle WebSocket errors and closure
+    openAiWs.on("close", () =>
+      console.log("Disconnected from the OpenAI Realtime API")
+    );
+    openAiWs.on("error", (error) =>
+      console.error("Error in the OpenAI WebSocket:", error)
+    );
+  };
+
+  // Execute the flow chain for a called function (accumulate flexible data and pass previous responses)
+  const executeFlowForFunction = async (functionName, initialArgs) => {
+    if (!loadedFlow) {
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: { error: "No flow loaded" },
+      };
+    }
+
+    // Find the edge from AI Start with matching sourceHandle (e.g., "function-send_message")
+    const startingEdge = loadedFlow.edges.find(
+      (edge) =>
+        edge.source === "1" && edge.sourceHandle === `function-${functionName}`
+    );
+    if (!startingEdge) {
+      return {
+        instruct:
+          "check the response if success or failed and act as per the response",
+        data: { error: `No flow connected for function: ${functionName}` },
+      };
+    }
+
+    let currentNodeId = startingEdge.target;
+    let params = initialArgs; // Start with args from OpenAI function call
+    const accumulatedData = []; // Collect just the data from each node (for final return to AI)
+    const previousResponses = []; // Accumulate previous responses to pass to each subsequent function
+
+    // Log initial args for debugging
+    console.log(
+      `Initial OpenAI args for ${functionName}: ${JSON.stringify(initialArgs)}`
+    );
+    if (Object.keys(initialArgs).length === 0) {
+      console.warn("No arguments received from OpenAI function call.");
+    }
+
+    while (currentNodeId) {
+      const currentNode = loadedFlow.nodes.find(
+        (node) => node.id === currentNodeId
+      );
+      if (!currentNode) break;
+
+      // Merge node.data with current params, previousResponses array, and raw OpenAI args
+      const nodeParams = {
+        currentNode: currentNode?.data,
+        paramsValue: params,
+        previousResponses: [...previousResponses], // Copy of all previous responses in order
+        ai: { ...initialArgs }, // Raw copy of original OpenAI function call args (accessible in every node)
+      };
+
+      // Log nodeParams for debugging
+      console.log(
+        `Node params for node ${currentNodeId} (${
+          currentNode.type
+        }): ${JSON.stringify(nodeParams)}`
+      );
+
+      let nodeResponse;
+      let nextEdge;
+
+      // Handle different node types
+      switch (currentNode.type) {
+        case "sendMessage":
+          nodeResponse = await functionRegistry.send_message(nodeParams);
+          // Find next connected node
+          nextEdge = loadedFlow.edges.find(
+            (edge) => edge.source === currentNodeId
+          );
+          break;
+        case "sendEmail":
+          nodeResponse = await functionRegistry.send_email(nodeParams);
+          // Find next connected node
+          nextEdge = loadedFlow.edges.find(
+            (edge) => edge.source === currentNodeId
+          );
+          break;
+        case "conditional":
+          // For conditional nodes, we need to evaluate the condition and find the matching edge
+          console.log(`🔀 Evaluating conditional node: ${currentNode.id}`);
+
+          // Get the value to evaluate based on the variableName path
+          const pathToEvaluate = currentNode.data.variableName;
+          let valueToEvaluate = getValueByPath(nodeParams, pathToEvaluate);
+
+          // Convert to string for string-based conditions to handle numbers reliably
+          valueToEvaluate =
+            valueToEvaluate !== undefined && valueToEvaluate !== null
+              ? String(valueToEvaluate)
+              : valueToEvaluate;
+
+          console.log(`Path: ${pathToEvaluate}, Value: ${valueToEvaluate}`);
+
+          // Find the matching condition (skip defaults and invalid types in this loop)
+          let matchedCondition = null;
+          for (const condition of currentNode.data.conditions || []) {
+            if (condition.type === "default" || !condition.type) {
+              console.log(
+                `Skipping condition: ${condition.name || condition.id} (type: ${
+                  condition.type || "undefined"
+                })`
+              );
+              continue; // Skip defaults and undefined/invalid types here—handle defaults as fallback below
+            }
+            const isMatch = evaluateCondition(valueToEvaluate, condition);
+            console.log(
+              `Evaluating condition "${
+                condition.name || condition.id
+              }" (type: ${condition.type}, value: ${condition.value}): ${
+                isMatch ? "Matched" : "Did not match"
+              }`
+            );
+            if (isMatch) {
+              matchedCondition = condition;
+              console.log(
+                `✅ Matched condition: ${condition.name || condition.id}`
+              );
+              break;
+            }
+          }
+
+          // If no specific condition matched, find and use the default
+          if (!matchedCondition) {
+            matchedCondition = currentNode.data.conditions.find(
+              (c) => c.type === "default"
+            );
+            if (matchedCondition) {
+              console.log(
+                `⚠️ Using default condition: ${
+                  matchedCondition.name || "Default"
+                }`
+              );
+            } else {
+              console.warn("No conditions matched and no default found.");
+              nodeResponse = {
+                instruct:
+                  "check the response if success or failed and act as per the response",
+                data: { error: "No matching condition or default found" },
+              };
+              break; // Exit the loop if no route
+            }
+          }
+
+          // Find the edge that corresponds to the matched condition
+          nextEdge = loadedFlow.edges.find(
+            (edge) =>
+              edge.source === currentNodeId &&
+              edge.sourceHandle === `condition-${matchedCondition?.id}`
+          );
+
+          if (!nextEdge) {
+            console.warn(
+              `No edge found for condition: ${matchedCondition?.id}`
+            );
+            nodeResponse = {
+              instruct:
+                "check the response if success or failed and act as per the response",
+              data: { error: "No connected edge for matched condition" },
+            };
+            break;
+          }
+
+          // For conditional nodes, we don't generate a response, just pass through the params
+          nodeResponse = {
+            instruct: "Condition evaluation result",
+            data: {
+              condition: matchedCondition?.name || "Unknown",
+              value: valueToEvaluate,
+            },
+          };
+          break;
+        case "apiCall":
+          nodeResponse = await functionRegistry.api_call(nodeParams);
+          // Find next connected node
+          nextEdge = loadedFlow.edges.find(
+            (edge) => edge.source === currentNodeId
+          );
+          break;
+        default:
+          nodeResponse = {
+            instruct:
+              "check the response if success or failed and act as per the response",
+            data: { error: `Unsupported node type: ${currentNode.type}` },
+          };
+          // Find next connected node (default behavior)
+          nextEdge = loadedFlow.edges.find(
+            (edge) => edge.source === currentNodeId
+          );
+          break;
+      }
+
+      // Accumulate the data for final return (if there's data to accumulate)
+      if (nodeResponse?.data) {
+        accumulatedData.push(nodeResponse.data);
+      }
+
+      // Add this response to previousResponses for the next nodes (if there's data)
+      if (nodeResponse?.data) {
+        previousResponses.push(nodeResponse.data);
+      }
+
+      if (!nextEdge) break; // End of chain
+
+      // Pass the current data as base params to the next node (flexible pass-through)
+      if (nodeResponse?.data) {
+        params = nodeResponse.data || {}; // Use this node's data as input for next (or empty object if none)
+      }
+
+      currentNodeId = nextEdge.target;
+    }
+
+    // Return accumulated data for the AI to interpret
+    return {
+      instruct:
+        "check the response if success or failed and act as per the response",
+      data: accumulatedData, // Array of all datas from the chain (flexible structures)
+    };
+  };
+});
+
+module.exports = router;
