@@ -7,7 +7,8 @@ Ce projet se deploie depuis la racine du depot avec le `Dockerfile`.
 - Builder: Dockerfile
 - Dockerfile path: `Dockerfile`
 - Port expose par le conteneur: `8001`
-- Health check simple: ouvrir `/api/web/get_theme`
+- Health check simple: ouvrir `/health`
+- Test API apres connexion DB: ouvrir `/api/web/get_theme`
 
 ## Variables d'environnement
 
