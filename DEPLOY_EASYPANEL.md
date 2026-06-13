@@ -7,7 +7,6 @@ Ce projet se deploie depuis la racine du depot avec le `Dockerfile`.
 - Builder: Dockerfile
 - Dockerfile path: `Dockerfile`
 - Port expose par le conteneur: `8001`
-- Ports egalement ecoutes par securite: `80`, `3000`
 - Health check simple: ouvrir `/health`
 - Test API apres connexion DB: ouvrir `/api/web/get_theme`
 
@@ -18,7 +17,6 @@ Configurer ces variables dans Easypanel, sans commiter de fichier `.env`:
 ```env
 HOST=0.0.0.0
 PORT=8001
-EXTRA_PORTS=80,3000
 DBHOST=<host_mysql_easypanel>
 DBPORT=3306
 DBNAME=u214573487_ai_call_center

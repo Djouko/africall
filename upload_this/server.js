@@ -71,25 +71,13 @@ app.get("*", (request, response) => {
 });
 
 // Start the server
-const primaryPort = Number.parseInt(process.env.PORT || "3010", 10);
+const port = process.env.PORT || 3010;
 const host = process.env.HOST === "127.0.0.1" ? "0.0.0.0" : process.env.HOST || "0.0.0.0";
-const extraPorts = (process.env.EXTRA_PORTS || "")
-  .split(",")
-  .map((port) => Number.parseInt(port.trim(), 10))
-  .filter((port) => Number.isInteger(port) && port > 0 && port !== primaryPort);
-const ports = [...new Set([primaryPort, ...extraPorts])];
-let campaignWorkerStarted = false;
 
-ports.forEach((port) => {
-  app.listen(port, host, () => {
-    console.log(`Whatsham server is running on ${host}:${port}`);
-
-    if (!campaignWorkerStarted) {
-      campaignWorkerStarted = true;
-      setTimeout(() => {
-        startCampaignWorker();
-        // console.log("BULK BETA CAMPAIGN STARTED");
-      }, 2000);
-    }
-  });
+const server = app.listen(port, host, () => {
+  console.log(`Whatsham server is running on ${host}:${port}`);
+  setTimeout(() => {
+    startCampaignWorker();
+    // console.log("BULK BETA CAMPAIGN STARTED");
+  }, 2000);
 });
