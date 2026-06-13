@@ -1,0 +1,23 @@
+.git
+.gitignore
+.dockerignore
+
+**/.DS_Store
+**/__MACOSX
+
+*.zip
+*.rar
+*.7z
+
+cadrage/
+cahier_des_charges/
+documentation/
+rapport uv projet final - Copie.docx
+
+upload_this/.env
+upload_this/node_modules/
+upload_this/local-server.log
+upload_this/local-server.err.log
+upload_this/npm-debug.log*
+
+database/

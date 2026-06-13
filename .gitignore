@@ -1,0 +1,17 @@
+**/.DS_Store
+**/__MACOSX/
+
+*.zip
+*.rar
+*.7z
+
+upload_this/.env
+upload_this/node_modules/
+upload_this/local-server.log
+upload_this/local-server.err.log
+upload_this/npm-debug.log*
+
+cadrage/
+cahier_des_charges/
+documentation/
+rapport uv projet final - Copie.docx
