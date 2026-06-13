@@ -1,16 +1,16 @@
-const mysql = require("mysql");
+const mysql = require("mysql2");
 
 const con = mysql.createPool({
   connectionLimit: 1000,
   host: process.env.DBHOST,
-  port: 3306,
+  port: process.env.DBPORT || 3306,
   user: process.env.DBUSER,
   password: process.env.DBPASS,
   database: process.env.DBNAME,
   charset: "utf8mb4",
 });
 
-con.getConnection((err) => {
+con.getConnection((err, connection) => {
   if (err) {
     console.log({
       err: err,
@@ -18,6 +18,7 @@ con.getConnection((err) => {
     });
     return;
   } else {
+    connection.release();
     console.log("Database has been connected");
   }
 });
