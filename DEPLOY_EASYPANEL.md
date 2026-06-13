@@ -9,6 +9,23 @@ Ce projet se deploie depuis la racine du depot avec le `Dockerfile`.
 - Port expose par le conteneur: `8001`
 - Health check simple: ouvrir `/api/web/get_theme`
 
+## Configuration Domains & Proxy
+
+Pour une application web, Easypanel route les requetes par **Domains & Proxy**.
+Le champ important est donc le **Proxy Port**.
+
+Configurer le domaine du service `app` comme suit:
+
+```text
+Domain: <votre-domaine-ou-sous-domaine>
+Proxy Port: 8001
+HTTPS: enabled
+```
+
+Ne pas se limiter a l'onglet **Ports**: dans Easypanel, cet onglet sert surtout
+aux applications non-web. Pour cette application, le domaine doit pointer vers
+le proxy port `8001`.
+
 ## Variables d'environnement
 
 Configurer ces variables dans Easypanel, sans commiter de fichier `.env`:
