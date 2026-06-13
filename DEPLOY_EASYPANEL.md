@@ -26,6 +26,11 @@ Ne pas se limiter a l'onglet **Ports**: dans Easypanel, cet onglet sert surtout
 aux applications non-web. Pour cette application, le domaine doit pointer vers
 le proxy port `8001`.
 
+Si Easypanel affiche `En cours d'execution 0 / 1`, consulter les logs de
+deploiement et l'etat healthcheck du conteneur: cela indique que Docker ne voit
+pas de replique saine a router, meme si le serveur Node affiche des logs de
+demarrage.
+
 ## Variables d'environnement
 
 Configurer ces variables dans Easypanel, sans commiter de fichier `.env`:
