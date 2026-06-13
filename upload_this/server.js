@@ -59,10 +59,6 @@ app.use("/api/vagent_route", voiceAgentRoute);
 const voiceAgentRouter = require("./routes/voiceAgent");
 app.use("/api/vagent", voiceAgentRouter);
 
-app.get("/health", (request, response) => {
-  response.status(200).json({ status: "ok" });
-});
-
 // Serve static files
 app.use(express.static(path.resolve(__dirname, "./client/public")));
 
@@ -71,11 +67,8 @@ app.get("*", (request, response) => {
 });
 
 // Start the server
-const port = process.env.PORT || 3010;
-const host = process.env.HOST === "127.0.0.1" ? "0.0.0.0" : process.env.HOST || "0.0.0.0";
-
-const server = app.listen(port, host, () => {
-  console.log(`Whatsham server is running on ${host}:${port}`);
+const server = app.listen(process.env.PORT || 3010, () => {
+  console.log(`Whatsham server is running on port ${process.env.PORT}`);
   setTimeout(() => {
     startCampaignWorker();
     // console.log("BULK BETA CAMPAIGN STARTED");

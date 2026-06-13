@@ -3,7 +3,6 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
 ENV PORT=8001
 
 RUN apt-get update \
@@ -20,6 +19,6 @@ RUN mkdir -p temp
 
 EXPOSE 8001
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD node -e "const port=process.env.PORT||8001; fetch(`http://127.0.0.1:${port}/health`).then((res)=>process.exit(res.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD node -e "const port=process.env.PORT||8001; fetch(`http://127.0.0.1:${port}/api/web/get_theme`).then((res)=>process.exit(res.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]
